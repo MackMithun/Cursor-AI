@@ -33,3 +33,12 @@ export function makeFlagFromCurrency(currencyCode: string): string {
   const countryCode = currencyCodeToCountryCode(currencyCode)
   return countryCodeToFlag(countryCode)
 }
+
+/** Flag image URL from flagcdn.com (ISO 3166-1 alpha-2 country code). */
+export function getFlagImageUrl(currencyCode: string): string | null {
+  const countryCode = currencyCodeToCountryCode(currencyCode)
+  if (!/^[A-Z]{2}$/i.test(countryCode)) {
+    return null
+  }
+  return `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png`
+}

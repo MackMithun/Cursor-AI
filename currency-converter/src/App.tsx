@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchCurrencies, type CurrencyInfo } from './api/fetchCurrencies'
 import { getRates } from './api/getRates'
 import { AmountInput } from './components/AmountInput'
@@ -22,6 +22,7 @@ type ConversionState = {
 
 const DEFAULT_FROM = 'USD'
 const DEFAULT_TO = 'EUR'
+const CONVERT_DEBOUNCE_MS = 400
 
 function App() {
   const [currencies, setCurrencies] = useState<CurrencyInfo[]>([])
@@ -32,6 +33,7 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [loadingCurrencies, setLoadingCurrencies] = useState(true)
   const [converting, setConverting] = useState(false)
+  const convertRequestRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -70,74 +72,99 @@ function App() {
     [amount],
   )
 
-  const canConvert =
+  const canAutoConvert =
     amountIsValid &&
     from !== to &&
     currencies.length > 0 &&
-    !converting &&
     !loadingCurrencies
-
-  const clearResult = () => setResult(null)
 
   const handleAmountChange = (value: string) => {
     setAmount(sanitizeAmountInput(value))
-    clearResult()
     setError(null)
   }
 
   const handleFromChange = (code: string) => {
     setFrom(code)
-    clearResult()
     setError(null)
   }
 
   const handleToChange = (code: string) => {
     setTo(code)
-    clearResult()
     setError(null)
-  }
-
-  const handleConvert = async () => {
-    if (!canConvert) {
-      return
-    }
-
-    const parsedAmount = Number(amount)
-    setConverting(true)
-    setError(null)
-
-    try {
-      const response = await getRates(parsedAmount, from, to)
-      const converted = response.rates[to]
-      if (converted == null) {
-        throw new Error('Conversion rate not available for selected currencies.')
-      }
-
-      setResult({
-        amount: parsedAmount,
-        from,
-        to,
-        total: converted,
-        rate: getRateFromResponse(parsedAmount, converted),
-      })
-    } catch (convertError) {
-      setResult(null)
-      setError(
-        convertError instanceof Error
-          ? convertError.message
-          : 'Conversion failed. Please try again.',
-      )
-    } finally {
-      setConverting(false)
-    }
   }
 
   const handleSwap = () => {
     setFrom(to)
     setTo(from)
-    clearResult()
     setError(null)
   }
+
+  useEffect(() => {
+    if (!canAutoConvert) {
+      setResult(null)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      const requestId = ++convertRequestRef.current
+      const parsedAmount = Number(amount)
+
+      setConverting(true)
+      setError(null)
+
+      getRates(parsedAmount, from, to)
+        .then((response) => {
+          if (requestId !== convertRequestRef.current) {
+            return
+          }
+
+          const converted = response.rates[to]
+          if (converted == null) {
+            throw new Error('Conversion rate not available for selected currencies.')
+          }
+
+          setResult({
+            amount: parsedAmount,
+            from,
+            to,
+            total: converted,
+            rate: getRateFromResponse(parsedAmount, converted),
+          })
+        })
+        .catch((convertError) => {
+          if (requestId !== convertRequestRef.current) {
+            return
+          }
+
+          setResult(null)
+          setError(
+            convertError instanceof Error
+              ? convertError.message
+              : 'Conversion failed. Please try again.',
+          )
+        })
+        .finally(() => {
+          if (requestId === convertRequestRef.current) {
+            setConverting(false)
+          }
+        })
+    }, CONVERT_DEBOUNCE_MS)
+
+    return () => {
+      clearTimeout(timer)
+      convertRequestRef.current += 1
+    }
+  }, [amount, from, to, canAutoConvert])
+
+  const resultHint = loadingCurrencies
+    ? 'Loading currencies...'
+    : converting
+      ? 'Updating conversion...'
+      : !amountIsValid
+        ? 'Enter a valid amount to convert.'
+        : from === to
+          ? 'Choose two different currencies.'
+          : null
 
   return (
     <main className="app">
@@ -182,24 +209,11 @@ function App() {
               total={result.total}
             />
           ) : (
-            <p className="result-hint">
-              {loadingCurrencies
-                ? 'Loading currencies...'
-                : 'Click "Get Exchange Rate" to see the conversion.'}
-            </p>
+            resultHint && <p className="result-hint">{resultHint}</p>
           )}
         </div>
 
         {error && <p className="error">{error}</p>}
-
-        <button
-          type="button"
-          className="primary-button"
-          onClick={handleConvert}
-          disabled={!canConvert}
-        >
-          {converting ? 'Converting...' : 'Get Exchange Rate'}
-        </button>
       </section>
     </main>
   )

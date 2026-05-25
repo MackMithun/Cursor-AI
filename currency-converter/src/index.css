@@ -72,6 +72,39 @@ body {
   position: relative;
 }
 
+.currency-combobox__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currency-combobox__input-flag {
+  position: absolute;
+  left: 0.75rem;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.currency-combobox__input--with-flag {
+  padding-left: 3rem !important;
+}
+
+.currency-flag {
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.currency-flag--emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+}
+
 .currency-combobox__list {
   position: absolute;
   z-index: 10;
@@ -91,10 +124,22 @@ body {
 
 .currency-combobox__option {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  align-items: center;
+  gap: 0.65rem;
   padding: 0.5rem 0.75rem;
   cursor: pointer;
+}
+
+.currency-combobox__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.currency-combobox__code {
+  font-weight: 600;
+  font-size: 0.95rem;
 }
 
 .currency-combobox__option--active {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   countryCodeToFlag,
   currencyCodeToCountryCode,
+  getFlagImageUrl,
   makeFlagFromCurrency,
 } from './makeFlagFromCurrency'
 
@@ -17,5 +18,10 @@ describe('makeFlagFromCurrency', () => {
 
   it('returns empty flag when country code is invalid', () => {
     expect(countryCodeToFlag('U')).toBe('')
+  })
+
+  it('builds flag image URL from currency code', () => {
+    expect(getFlagImageUrl('USD')).toBe('https://flagcdn.com/w40/us.png')
+    expect(getFlagImageUrl('EUR')).toBe('https://flagcdn.com/w40/eu.png')
   })
 })

@@ -8,6 +8,15 @@ const currencies = {
   EUR: 'Euro',
 }
 
+function parseLatestUrl(url: string) {
+  const params = new URL(url, 'http://localhost').searchParams
+  return {
+    amount: Number(params.get('amount') ?? 1),
+    from: params.get('from') ?? 'USD',
+    to: params.get('to') ?? 'EUR',
+  }
+}
+
 describe('App', () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -26,13 +35,14 @@ describe('App', () => {
         }
 
         if (url.includes('/latest')) {
+          const { amount, to } = parseLatestUrl(url)
           return Promise.resolve({
             ok: true,
             json: async () => ({
-              amount: 100,
-              base: 'USD',
+              amount,
+              base: parseLatestUrl(url).from,
               date: '2026-05-21',
-              rates: { EUR: 92 },
+              rates: { [to]: amount * 0.92 },
             }),
           })
         }
@@ -42,7 +52,7 @@ describe('App', () => {
     )
   }
 
-  it('loads currencies and converts on button click', async () => {
+  it('auto-converts when amount is entered', async () => {
     mockFetch()
     const user = userEvent.setup()
 
@@ -54,14 +64,16 @@ describe('App', () => {
 
     await user.clear(screen.getByLabelText('Enter Amount'))
     await user.type(screen.getByLabelText('Enter Amount'), '100')
-    await user.click(screen.getByRole('button', { name: 'Get Exchange Rate' }))
 
-    await waitFor(() => {
-      expect(screen.getByText('100 USD = 92 EUR')).toBeInTheDocument()
-    })
+    await waitFor(
+      () => {
+        expect(screen.getByText('100 USD = 92 EUR')).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
   })
 
-  it('clears result when amount changes after conversion', async () => {
+  it('auto-updates result when amount changes', async () => {
     mockFetch()
     const user = userEvent.setup()
 
@@ -69,32 +81,44 @@ describe('App', () => {
 
     await waitFor(() => expect(screen.getByLabelText('From')).toBeEnabled())
 
-    await user.clear(screen.getByLabelText('Enter Amount'))
-    await user.type(screen.getByLabelText('Enter Amount'), '100')
-    await user.click(screen.getByRole('button', { name: 'Get Exchange Rate' }))
+    const amountInput = screen.getByLabelText('Enter Amount')
+    await user.clear(amountInput)
+    await user.type(amountInput, '100')
 
     await waitFor(() => {
       expect(screen.getByText('100 USD = 92 EUR')).toBeInTheDocument()
     })
 
-    await user.type(screen.getByLabelText('Enter Amount'), '1')
+    await user.clear(amountInput)
+    await user.type(amountInput, '200')
 
-    expect(screen.queryByText('100 USD = 92 EUR')).not.toBeInTheDocument()
-    expect(screen.getByText(/Click "Get Exchange Rate"/)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('200 USD = 184 EUR')).toBeInTheDocument()
+    })
   })
 
-  it('swaps currencies and clears the previous result', async () => {
+  it('auto-converts after swapping currencies', async () => {
     mockFetch()
     const user = userEvent.setup()
 
     render(<App />)
 
     await waitFor(() => expect(screen.getByLabelText('From')).toBeEnabled())
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 USD = /)).toBeInTheDocument()
+    })
 
     await user.click(screen.getByRole('button', { name: 'Swap currencies' }))
 
     expect((screen.getByLabelText('From') as HTMLInputElement).value).toContain('EUR')
     expect((screen.getByLabelText('To') as HTMLInputElement).value).toContain('USD')
-    expect(screen.getByText(/Click "Get Exchange Rate"/)).toBeInTheDocument()
+
+    await waitFor(
+      () => {
+        expect(screen.getByText(/1 EUR = .* USD/)).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
   })
 })

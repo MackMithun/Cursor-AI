@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { CurrencyInfo } from '../api/fetchCurrencies'
-import { makeFlagFromCurrency } from '../utils/makeFlagFromCurrency'
+import { CurrencyFlag } from './CurrencyFlag'
 
 type CurrencySelectProps = {
   id: string
@@ -10,11 +10,6 @@ type CurrencySelectProps = {
   currencies: CurrencyInfo[]
   disabled?: boolean
   onChange: (code: string) => void
-}
-
-export function formatOptionLabel(code: string): string {
-  const flag = makeFlagFromCurrency(code)
-  return flag ? `${flag} ${code}` : code
 }
 
 function matchesQuery(currency: CurrencyInfo, query: string): boolean {
@@ -132,36 +127,43 @@ export function CurrencySelect({
     }
   }
 
-  const displayValue = open
-    ? query
-    : selected
-      ? formatOptionLabel(selected.code)
-      : value
-
+  const displayValue = open ? query : (selected?.code ?? value)
   const inputDisabled = disabled || currencies.length === 0
+  const showInputFlag =
+    Boolean(value) && currencies.some((currency) => currency.code === value)
 
   return (
     <div className="field field--compact currency-combobox" ref={rootRef}>
       <label htmlFor={id}>{label}</label>
-      <input
-        id={id}
-        type="text"
-        role="combobox"
-        aria-expanded={open}
-        aria-controls={listboxId}
-        aria-autocomplete="list"
-        autoComplete="off"
-        spellCheck={false}
-        disabled={inputDisabled}
-        placeholder={inputDisabled ? 'Loading...' : 'Type code (e.g. USD)'}
-        value={displayValue}
-        onChange={(event) => handleInputChange(event.target.value)}
-        onFocus={() => {
-          setOpen(true)
-          setQuery('')
-        }}
-        onKeyDown={handleKeyDown}
-      />
+      <div className="currency-combobox__input-wrap">
+        {showInputFlag && (
+          <CurrencyFlag
+            code={value}
+            size={26}
+            className="currency-combobox__input-flag"
+          />
+        )}
+        <input
+          id={id}
+          type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          autoComplete="off"
+          spellCheck={false}
+          disabled={inputDisabled}
+          placeholder={inputDisabled ? 'Loading...' : 'Type code (e.g. USD)'}
+          className={showInputFlag ? 'currency-combobox__input--with-flag' : ''}
+          value={displayValue}
+          onChange={(event) => handleInputChange(event.target.value)}
+          onFocus={() => {
+            setOpen(true)
+            setQuery('')
+          }}
+          onKeyDown={handleKeyDown}
+        />
+      </div>
       {open && filtered.length > 0 && (
         <ul id={listboxId} className="currency-combobox__list" role="listbox">
           {filtered.map((currency) => {
@@ -194,10 +196,11 @@ export function CurrencySelect({
                   }
                 }}
               >
-                <span className="currency-combobox__code">
-                  {formatOptionLabel(currency.code)}
+                <CurrencyFlag code={currency.code} size={32} />
+                <span className="currency-combobox__option-text">
+                  <span className="currency-combobox__code">{currency.code}</span>
+                  <span className="currency-combobox__name">{currency.name}</span>
                 </span>
-                <span className="currency-combobox__name">{currency.name}</span>
               </li>
             )
           })}
